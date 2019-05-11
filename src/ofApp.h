@@ -29,53 +29,62 @@ class ofApp : public ofBaseApp{
 		void savePicture();
 		void toggleWireframeMode();
 		void togglePointsDisplay();
-		//void toggleSelectTerrain();
+		void toggleSelectTerrain();
 		void setCameraTarget();
-		//bool doPointSelection();
+		bool  doPointSelection();
 		void drawBox(const Box &box);
 		Box meshBounds(const ofMesh &);
 		
 		Box meshBounds(ofxAssimpModelLoader &);
-		//void updateRoverBox();
+		void updateRoverBox();
 		
 
-		vector<ofCamera> cams;
+		ofEasyCam cam;
+		ofCamera pathCam;
 		ofCamera * currentCam;
-
-		vector<ofxAssimpModelLoader> map;
-		ofxAssimpModelLoader raceTrack;
-		ofxAssimpModelLoader raceCar;
-
+		ofxAssimpModelLoader mars, rover;
 		ofLight light;
+		Box boundingBox;
+		Box roverBox;
 	
 		bool bAltKeyDown;
 		bool bCtrlKeyDown;
 		bool bWireframe;
 		bool bDisplayPoints;
 		bool bPointHovered;
-		bool bPlayMode;
-		bool bShowPath;
+		bool bPlayMode = false;
+		
+		bool bRoverLoaded = false;
+		bool bTerrainSelected;
+	
 		
 		ofVec3f intersectPoint;
 
 		int pmouseX;
 		int pmouseY;
+		Vector3 roverOriMax;
+		Vector3 roverOriMin;
+		glm::vec3 diffToRover;
+
+		bool bRoverDraging;
+		
 
 		octree ot;
-		bool bDrawOctree;
-		bool bPointSelectionMode;
-
+		bool bDrawOctree = false;
+		bool bPointSelectionMode = false;
 		vector<ofVec3f> trails;
 		
-		int selectedPoint;
-		bool bPointMoving;
+		const float selectionRange = 4.0;
+
+		int selectedPoint = -1;
+		bool bPointMoving = false;
 
 		float playMode_t;
 		int playMode_i;
 
+		glm::vec3 target;
+		int lookatSelection=1;
+
 		float speed = 1.0f;
-
-		int lvl = 5;
-
 
 };

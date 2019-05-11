@@ -41,6 +41,6 @@ public:
 	int maxLvl = 12;
 	vector<ofMesh> meshes;
 
-	const float selectionRange = 4.0;
+	const float selectionRange = 10.0;
 };
 
