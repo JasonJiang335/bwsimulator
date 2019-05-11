@@ -4,3 +4,7 @@
 # Except for the themes directories:
 !src/
 !src/*
+!bin/data/geo/bw_track.*
+!bin/data/geo/bw_justTrack.*
+!bin/data/geo/texture/
+!bin/data/geo/texture/*
