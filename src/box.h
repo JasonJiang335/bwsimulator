@@ -24,7 +24,6 @@ class Box {
       parameters[1] = max;
     }
     // (t0, t1) is the interval for valid hits
-    // t0, t1 are depth, a range
     bool intersect(const Ray &, float t0, float t1) const;
 
     // corners

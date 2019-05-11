@@ -4,6 +4,7 @@
 #include  "ofxAssimpModelLoader.h"
 #include "box.h"
 #include "ray.h"
+#include "octree.h"
 
 class ofApp : public ofBaseApp{
 
@@ -28,36 +29,53 @@ class ofApp : public ofBaseApp{
 		void savePicture();
 		void toggleWireframeMode();
 		void togglePointsDisplay();
-		void toggleSelectTerrain();
+		//void toggleSelectTerrain();
 		void setCameraTarget();
-		bool  doPointSelection();
+		//bool doPointSelection();
 		void drawBox(const Box &box);
 		Box meshBounds(const ofMesh &);
 		
+		Box meshBounds(ofxAssimpModelLoader &);
+		//void updateRoverBox();
+		
 
-		ofEasyCam cam;
-    ofCamera cam1, cam2;
-    ofCamera *theCam;
-    ofCamera topCam, rightCam, frontCam;
-    
-        vector<ofxAssimpModelLoader> map;
-		ofxAssimpModelLoader mars, rover;
+		vector<ofCamera> cams;
+		ofCamera * currentCam;
+
+		vector<ofxAssimpModelLoader> map;
+		ofxAssimpModelLoader raceTrack;
+		ofxAssimpModelLoader raceCar;
+
 		ofLight light;
-		Box boundingBox;
 	
 		bool bAltKeyDown;
 		bool bCtrlKeyDown;
 		bool bWireframe;
 		bool bDisplayPoints;
-		bool bPointSelected;
+		bool bPointHovered;
+		bool bPlayMode;
+		bool bShowPath;
 		
-		bool bRoverLoaded = false;
-		bool bTerrainSelected;
-        bool hit;
-    glm::vec3 mousePos;
-		ofVec3f selectedPoint;
 		ofVec3f intersectPoint;
 
+		int pmouseX;
+		int pmouseY;
 
-		const float selectionRange = 4.0;
+		octree ot;
+		bool bDrawOctree;
+		bool bPointSelectionMode;
+
+		vector<ofVec3f> trails;
+		
+		int selectedPoint;
+		bool bPointMoving;
+
+		float playMode_t;
+		int playMode_i;
+
+		float speed = 1.0f;
+
+		int lvl = 5;
+
+
 };

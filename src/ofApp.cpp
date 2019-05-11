@@ -1,4 +1,3 @@
-//When use box class, use Vector3 class in param
 
 //--------------------------------------------------------------
 //
@@ -27,7 +26,10 @@
 #include "ofApp.h"
 #include "Util.h"
 
-
+Vector3 vecAdd(Vector3 u, ofPoint v) {
+	
+	return Vector3{ u.x() + v.x, u.y() + v.y, u.z() + v.z };
+}
 
 //--------------------------------------------------------------
 // setup scene, lighting, state and load geometry
@@ -38,99 +40,147 @@ void ofApp::setup(){
 	bDisplayPoints = false;
 	bAltKeyDown = false;
 	bCtrlKeyDown = false;
-	bRoverLoaded = false;
-	bTerrainSelected = true;
-//	ofSetWindowShape(1024, 768);
-	cam.setDistance(10);
-	cam.setNearClip(.1);
-	cam.setFov(65.5);   // approx equivalent to 28mm in 35mm format
+	bPointMoving = false;
+	selectedPoint = -1;
+	bDrawOctree = false;
+	bPointSelectionMode = false;
+	bPlayMode = false;
+	bShowPath = false;
+
+	cams.push_back(ofCamera{});
+
+	ofEasyCam * cam = new ofEasyCam{};
+	cam->enableMouseInput();
+	
+	currentCam = cam;
+
+	currentCam->setNearClip(.1);
+	currentCam->setFov(65.5);   // approx equivalent to 28mm in 35mm format
 	ofSetVerticalSync(true);
-	cam.disableMouseInput();
+
 	ofEnableSmoothing();
 	ofEnableDepthTest();
 
-    theCam = &cam;
-    
-    //top camera config
-    topCam.setPosition(glm::vec3(0,50,0));
-    topCam.setNearClip(.1);
-    topCam.setFov(40);   // approx equivalent to 28mm in 35mm format
-    topCam.lookAt(glm::vec3(0,0,0));
-    
-    rightCam.setPosition(glm::vec3(-50, 0, 0));
-    rightCam.setNearClip(.1);
-    rightCam.setFov(65.5);   // approx equivalent to 28mm in 35mm format
-    rightCam.lookAt(glm::vec3(0,0,0));
-    
-    frontCam.setPosition(glm::vec3(0, 0, -50));
-    frontCam.setNearClip(.1);
-    frontCam.setFov(65.5);   // approx equivalent to 28mm in 35mm format
-    frontCam.lookAt(glm::vec3(0,0,0));
 	// setup rudimentary lighting 
 	//
 	initLightingAndMaterials();
+	
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/glass.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/trees.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/tw.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/simtraxx_bw.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/b1.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/hrrm.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/curbs.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/treesFar.obj");
+	map.push_back(ofxAssimpModelLoader{});
+	map.back().loadModel("geo/ts.obj");
+	
+	for (auto& t : map) {
+		t.disableTextures();
+		t.setScaleNormalization(false);
+	}
 
-	mars.loadModel("geo/simtraxx_bw.obj");
-	mars.setScaleNormalization(false);
-    
-    //get the first mesh, loop thru all vertices and create box beyond it
-    boundingBox = meshBounds(mars.getMesh(0));
-    //mars only have one mesh data, not like rover have more than one mesh
+	
+	raceTrack.loadModel("geo/cones_race26.obj");
+	raceTrack.setScaleNormalization(false);
+
+	//todo
+
+
+	
+	
 }
 
 //--------------------------------------------------------------
 // incrementally update scene (animation)
 //
 void ofApp::update() {
+	if (bPlayMode) {
+		if (playMode_t > 1.0f) {
+			if (playMode_i < trails.size() - 2) {
+				playMode_t = 0.0f;
+				++playMode_i;
+			}
+			else {
+				bPlayMode = false;
+				currentCam = &cams[0];
+				return;
+			}
+		}
+
+		float timeElasted = ofGetElapsedTimef();
+		ofResetElapsedTimeCounter();
+		/*
+		playMode_t += timeElasted / trails[playMode_i].distance(trails[playMode_i + 1]) * speed;
+		pathCam.setPosition(trails[playMode_i] * (1 - playMode_t) + trails[playMode_i + 1] * playMode_t + ofVec3f{ 0, 5, 0 });
+		if (lookatSelection == 1) {
+			target = trails[playMode_i+1] + ofVec3f(0, 5, 0);
+		} else if (lookatSelection == 2) {
+			target = bRoverLoaded ? (rover.getSceneMax() + rover.getSceneMin()) / 2 + rover.getPosition() : ofPoint{ 0, 10, 0 };
+		}
+		
+		pathCam.lookAt(target);
+		*/
+
+		//testPoint = trails[playMode_i] * (1 - playMode_t) + trails[playMode_i + 1] * playMode_t + ofVec3f{ 0, 5, 0 };
+	}
 	
 }
 //--------------------------------------------------------------
 void ofApp::draw(){
+
 	ofBackground(ofColor::black);
-    
-	theCam->begin();
-    
+	currentCam->begin();
 	ofPushMatrix();
 	if (bWireframe) {                    // wireframe mode  (include axis)
 		ofDisableLighting();
 		ofSetColor(ofColor::slateGray);
-		mars.drawWireframe();
-		if (bRoverLoaded) {
-			rover.drawWireframe();
-			if (!bTerrainSelected) drawAxis(rover.getPosition());
-		}
-		if (bTerrainSelected) drawAxis(ofVec3f(0, 0, 0));
+		for (auto& t : map)
+			t.drawWireframe();
+		raceTrack.drawWireframe();
+		raceCar.drawWireframe();
 	}
 	else {
-		ofEnableLighting();              // shaded mode
-		mars.drawFaces();
+		ofEnableLighting();     
+		// shaded mode
+		for (auto& t : map)
+			t.drawFaces();
+		raceTrack.drawFaces();
+		raceCar.drawFaces();
+	}
 
-		if (bRoverLoaded) {
-			rover.drawFaces();
-			if (!bTerrainSelected) drawAxis(rover.getPosition());
+
+
+	//Path
+	if (bShowPath)
+		for (int i = 0; i < trails.size();++i) {
+			ofSetColor(ofColor::red);
+			ofDrawSphere(trails[i], .1);
+			if (i) ofDrawLine(trails[i-1], trails[i]);
 		}
-		if (bTerrainSelected) drawAxis(ofVec3f(0, 0, 0));
-	}
 
-
-	if (bDisplayPoints) {                // display points as an option    
-		glPointSize(3);
-		ofSetColor(ofColor::green);
-		mars.drawVertices();
-	}
-
-	// highlight selected point (draw sphere around selected point)
-	//
-	if (bPointSelected) {
+	//Hovered point
+	if (!bPointMoving && bPointSelectionMode && bPointHovered) {
 		ofSetColor(ofColor::blue);
-		ofDrawSphere(selectedPoint, .1);
+		ofDrawSphere(intersectPoint, .1);
 	}
-	
-	ofNoFill();
-	ofSetColor(ofColor::white);
-	drawBox(boundingBox);
-    
-    theCam->end();
+
+	//octree
+	if (bDrawOctree) {
+		ofSetColor(0, 0, 255);
+		ot.draw(lvl);
+	}
+
+	currentCam->end();
 }
 
 // 
@@ -166,8 +216,6 @@ void ofApp::keyPressed(int key) {
 	switch (key) {
 	case 'C':
 	case 'c':
-		if (cam.getMouseInputEnabled()) cam.disableMouseInput();
-		else cam.enableMouseInput();
 		break;
 	case 'F':
 	case 'f':
@@ -177,7 +225,6 @@ void ofApp::keyPressed(int key) {
 	case 'h':
 		break;
 	case 'r':
-		cam.reset();
 		break;
 	case 's':
 		savePicture();
@@ -188,15 +235,78 @@ void ofApp::keyPressed(int key) {
 	case 'u':
 		break;
 	case 'v':
-		togglePointsDisplay();
 		break;
 	case 'V':
 		break;
 	case 'w':
 		toggleWireframeMode();
 		break;
+	case 'o':
+		bDrawOctree^=true;
+		break;
+	case 'n':
+		bPointSelectionMode ^= true;
+		bPointHovered = false;
+		selectedPoint = -1;
+		break;
+	case 'p':
+		
+		if (!bPlayMode) {
+			if (!bPointSelectionMode && trails.size() >= 2) {
+				bPlayMode = true;
+				playMode_t = 0.0f;
+				playMode_i = 0;
+				ofResetElapsedTimeCounter();
+			}
+		}
+		else {
+			bPlayMode = false;
+		}
+		break;
+	case '+':
+	case '=':
+		if (bDrawOctree) ++lvl;
+		else speed *= 2.0f;
+		break;
+	case '-':
+	case '_':
+		if (bDrawOctree) --lvl;
+		else speed *= 0.5f;
+		break;
+	
+	case '1':
+		for (auto& t : map)
+			t.disableTextures();
+		break;
+	case '2':
+		for (auto& t : map)
+			t.enableTextures();
+		break;
+	case '3':
+		for (auto& t : map)
+			t.disableColors();
+		break;
+	case '4':
+		for (auto& t : map)
+			t.enableColors();
+		break;
+	case '5':
+		for (auto& t : map)
+			t.disableMaterials();
+		break;
+	case '6':
+		for (auto& t : map)
+			t.enableMaterials();
+		break;
+	case '7':
+		for (auto& t : map)
+			t.disableNormals();
+		break;
+	case '8':
+		for (auto& t : map)
+			t.enableNormals();
+		break;
 	case OF_KEY_ALT:
-		cam.enableMouseInput();
 		bAltKeyDown = true;
 		break;
 	case OF_KEY_CONTROL:
@@ -205,31 +315,12 @@ void ofApp::keyPressed(int key) {
 	case OF_KEY_SHIFT:
 		break;
 	case OF_KEY_DEL:
+		if (selectedPoint != -1) {
+			trails.erase(trails.begin() + selectedPoint);
+			selectedPoint = -1;
+		}
+		else trails.clear();
 		break;
-    case OF_KEY_F1:
-            theCam = &cam;
-        break;
-    case OF_KEY_F2:
-            theCam = &topCam;
-        break;
-    case OF_KEY_F3:
-            theCam = &rightCam;
-        break;
-    case OF_KEY_F4:
-            theCam = &frontCam;
-        break;
-    case OF_KEY_UP:
-            cam.setPosition(cam.getPosition().x-10, cam.getPosition().y, cam.getPosition().z);
-        break;
-    case OF_KEY_DOWN:
-            cam.setPosition(cam.getPosition().x+10, cam.getPosition().y, cam.getPosition().z);
-            break;
-    case OF_KEY_LEFT:
-            cam.setPosition(cam.getPosition().x, cam.getPosition().y, cam.getPosition().z+10);
-            break;
-    case OF_KEY_RIGHT:
-            cam.setPosition(cam.getPosition().x, cam.getPosition().y, cam.getPosition().z-10);
-            break;
 	default:
 		break;
 	}
@@ -237,10 +328,6 @@ void ofApp::keyPressed(int key) {
 
 void ofApp::toggleWireframeMode() {
 	bWireframe = !bWireframe;
-}
-
-void ofApp::toggleSelectTerrain() {
-	bTerrainSelected = !bTerrainSelected;
 }
 
 void ofApp::togglePointsDisplay() {
@@ -252,7 +339,6 @@ void ofApp::keyReleased(int key) {
 	switch (key) {
 	
 	case OF_KEY_ALT:
-		cam.disableMouseInput();
 		bAltKeyDown = false;
 		break;
 	case OF_KEY_CONTROL:
@@ -270,29 +356,50 @@ void ofApp::keyReleased(int key) {
 
 //--------------------------------------------------------------
 void ofApp::mouseMoved(int x, int y ){
+	
+	pmouseX = x;
+	pmouseY = y;
+
+	if (bPointSelectionMode) {
+		bPointHovered = ot.doPointSelection(*currentCam, ofVec3f(x, y, 0), intersectPoint);
+	}
 }
 
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
-    if(doPointSelection()){
-        cout<< "hit" <<endl;
-    }
-    else{
-        cout<< "miss"<<endl;
-    }
-    
-    /*glm::vec3 origin = theCam->getPosition();
-    glm::vec3 direction = theCam->screenToWorld(glm::vec3(x,y,0)) - origin;
-    glm::vec3 nd = glm::normalize(direction);
-    Ray mouseRay = Ray(Vector3(origin.x, origin.y, origin.z), Vector3(nd.x, nd.y, nd.z));
-    hit = boundingBox.intersect(mouseRay, 0, 10000);
-    if(hit){
-        mousePos = theCam->screenToWorld(glm::vec3(x,y,0));
-    }
-    else{
-        mousePos = theCam->screenToWorld(glm::vec3(0,0,0));
-    }*/
+
+	if (currentCam!=&cams[0]) return;
+
+	if (bPointSelectionMode) {
+		if (button == 2) selectedPoint = -1;
+		else if (!button && bPointHovered) {
+			int tmp = -1;
+			for (int i = 0; i < trails.size(); ++i)
+				if (trails[i] == intersectPoint)
+					tmp = i;
+			if (tmp != -1) {
+				selectedPoint = tmp;
+				bPointMoving = true;
+				//bPointSelectionMode=false;
+			}
+			else {
+				trails.push_back(intersectPoint);
+				selectedPoint = trails.size() - 1;
+				//bPointSelectionMode = false;
+				bPointMoving = true;
+			}
+		}
+	}
+	else {
+		//TODO
+		//MOVE SCREEN
+	}
+
+	
+
+
+	
 }
 
 
@@ -332,17 +439,61 @@ Box ofApp::meshBounds(const ofMesh & mesh) {
 	return Box(Vector3(min.x, min.y, min.z), Vector3(max.x, max.y, max.z));
 }
 
+Box ofApp::meshBounds(ofxAssimpModelLoader &a)
+{
+	int m = a.getNumMeshes();
+	ofVec3f v = a.getMesh(0).getVertex(0);
+	ofVec3f max = v;
+	ofVec3f min = v;
+	
+	for (int j = 0; j < m; ++j) {
+		const ofMesh& mesh = a.getMesh(j);
+		int n = mesh.getNumVertices();
+		for (int i = 1; i < n; i++) {
+			ofVec3f v = mesh.getVertex(i);
+
+			if (v.x > max.x) max.x = v.x;
+			else if (v.x < min.x) min.x = v.x;
+
+			if (v.y > max.y) max.y = v.y;
+			else if (v.y < min.y) min.y = v.y;
+
+			if (v.z > max.z) max.z = v.z;
+			else if (v.z < min.z) min.z = v.z;
+		}
+	}
+	return Box(Vector3(min.x, min.y, min.z), Vector3(max.x, max.y, max.z));
+}
+/*
+void ofApp::updateRoverBox()
+{
+	roverBox.parameters[0] = vecAdd(roverOriMin, rover.getPosition());
+	roverBox.parameters[1] = vecAdd(roverOriMax, rover.getPosition());
+}
+*/
+
 
 
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button) {
+	
 
-
+	
+	if (bPointMoving) {
+		ot.doPointSelection(*currentCam, ofVec3f(x, y, 0), trails[selectedPoint]);
+	}
+	else if (!bPointSelectionMode) {
+		//Move
+	}
+	pmouseX = x;
+	pmouseY = y;
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseReleased(int x, int y, int button) {
-
+	
+	bPointMoving = false;
+	bPointHovered = false;
 }
 
 
@@ -355,6 +506,7 @@ void ofApp::mouseReleased(int x, int y, int button) {
 //  vertice points projected onto screenspace.
 //  if a point is selected, return true, else return false;
 //
+/*
 bool ofApp::doPointSelection() {
 
 	ofMesh mesh = mars.getMesh(0);
@@ -362,7 +514,7 @@ bool ofApp::doPointSelection() {
 	float nearestDistance = 0;
 	int nearestIndex = 0;
 
-	bPointSelected = false;
+	bPointHovered = false;
 
 	ofVec2f mouse(mouseX, mouseY);
 	vector<ofVec3f> selection;
@@ -377,14 +529,14 @@ bool ofApp::doPointSelection() {
 		float distance = posScreen.distance(mouse);
 		if (distance < selectionRange) {
 			selection.push_back(vert);
-			bPointSelected = true;
+			bPointHovered = true;
 		}
 	}
 
 	//  if we found selected points, we need to determine which
 	//  one is closest to the eye (camera). That one is our selected target.
 	//
-	if (bPointSelected) {
+	if (bPointHovered) {
 		float distance = 0;
 		for (int i = 0; i < selection.size(); i++) {
 			ofVec3f point =  cam.worldToCamera(selection[i]);
@@ -393,15 +545,16 @@ bool ofApp::doPointSelection() {
 			// the camera is simply the length of the point vector
 			//
 			float curDist = point.length(); 
-            //find the point in Z depth which is closest to our eyes
+
 			if (i == 0 || curDist < distance) {
 				distance = curDist;
-				selectedPoint = selection[i];
+				intersectPoint = selection[i];
 			}
 		}
 	}
-	return bPointSelected;
+	return bPointHovered;
 }
+*/
 
 // Set the camera to use the selected point as it's new target
 //  
@@ -483,5 +636,6 @@ void ofApp::savePicture() {
 // model is dropped in viewport, place origin under cursor
 //
 void ofApp::dragEvent(ofDragInfo dragInfo) {
-
+	
+	
 }
