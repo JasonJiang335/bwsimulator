@@ -23,7 +23,7 @@ struct node {
 class octree
 {
 public:
-	void create(int maxLvl=10);
+	void create(ofxAssimpModelLoader& obj);
 	void subdivide(node & n, vector<ObjectPoint>* points, int lvl);
 	vector<Box> subDivideBox8(Box box);
 	vector<ObjectPoint> getPointsInBox(vector<ObjectPoint>& p, Box& box);
@@ -38,7 +38,7 @@ public:
 	void findPoint(const node& box, const Ray r, ofCamera& cam, ofVec3f & mouse, vector<ObjectPoint>& selections);
 	bool inside(Box& box, Vector3 v);
 	node root;
-	int maxLvl;
+	int maxLvl = 12;
 	vector<ofMesh> meshes;
 
 	const float selectionRange = 4.0;

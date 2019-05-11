@@ -1,37 +1,30 @@
 #include "octree.h"
 
-void octree::create(int maxLvl)
+void octree::create(ofxAssimpModelLoader& obj)
 {
-	this->maxLvl = maxLvl;
-	glm::vec3 min = meshes[0].getVertex(0);
-	glm::vec3 max = min;
-	
-	vector<ObjectPoint> *points = new vector<ObjectPoint>{};
-	for (int i = 0; i < meshes.size(); ++i)
-		for (int j = 0; j < meshes[i].getVertices().size(); ++j) {
-			points->push_back({ i,j });
-			glm::vec3 v = meshes[i].getVertex(j);
-			if (v.x < min.x) min.x = v.x;
-			if (v.y < min.y) min.y = v.y;
-			if (v.z < min.z) min.z = v.z;
-			if (v.x > max.x) max.x = v.x;
-			if (v.y > max.y) max.y = v.y;
-			if (v.z > max.z) max.z = v.z;
-		}
-	
+	ofPoint min = obj.getSceneMin();
+	ofPoint max = obj.getSceneMax();
 	root.box = Box{ Vector3{min.x,min.y,min.z}, Vector3{max.x,max.y,max.z} };
+	vector<ObjectPoint> *points = new vector<ObjectPoint>{};
+	for (int i = 0; i < obj.getNumMeshes(); ++i) {
+		meshes.push_back(obj.getMesh(i));
+		for (int j = 0; j < meshes.back().getVertices().size(); ++j)
+			points->push_back({ i,j });
+	}
 		
 	subdivide(root, points, 0);
 }
 
 void octree::subdivide(node & n, vector<ObjectPoint>* points, int lvl)
 {
-
+	//cout << points->size() << endl;
 	if (points->size() == 1 || lvl == maxLvl) {
 		n.points = points;
 		n.leaf = true;
+		//cout << n.points->size() << endl;
 	}
 	else {
+		//cout << n.box.min().x() << ',' << n.box.min().y() << ',' << n.box.min().z() << "  " << n.box.max().x() << ',' << n.box.max().y() << ',' << n.box.max().z() << endl;
 		vector<Box> subBox = subDivideBox8(n.box);
 		n.children = new vector<node>{};
 		n.leaf = false;
