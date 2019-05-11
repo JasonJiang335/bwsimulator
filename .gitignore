@@ -4,5 +4,7 @@
 # Except for the themes directories:
 !src/
 !src/*
+!bin/
+!bin/data/
 !bin/data/geo/
 !bin/data/geo/*
