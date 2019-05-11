@@ -46,8 +46,12 @@ void ofApp::setup(){
 	cam.setDistance(10);
 	cam.setNearClip(.1);
 	cam.setFov(65.5);   // approx equivalent to 28mm in 35mm format
+
+	pathCam.setNearClip(.1);
+	pathCam.setFov(65.5);   // approx equivalent to 28mm in 35mm format
+
 	ofSetVerticalSync(true);
-	cam.disableMouseInput();
+	//cam.disableMouseInput();
 	ofEnableSmoothing();
 	ofEnableDepthTest();
 
@@ -57,6 +61,7 @@ void ofApp::setup(){
 
 	mars.loadModel("geo/simtraxx_bw.obj");
 	mars.setScaleNormalization(false);
+	mars.disableTextures();
 	//mars.setScale(-1, -1, 1);
 
 	boundingBox = meshBounds(mars.getMesh(0));
@@ -143,11 +148,11 @@ void ofApp::draw(){
 	drawBox(boundingBox);
 	drawBox(roverBox);
 
-	
+	if (!bPlayMode)
 	for (int i = 0; i < trails.size();++i) {
 		if (i==selectedPoint) ofSetColor(ofColor::yellowGreen);
 		else ofSetColor(ofColor::red);
-		ofDrawSphere(trails[i], .1);
+		ofDrawSphere(trails[i] + ofVec3f{0, 5, 0}, 3);
 		ofSetColor(ofColor::red);
 		if (i) ofDrawLine(trails[i-1], trails[i]);
 	}
@@ -156,7 +161,7 @@ void ofApp::draw(){
 	//
 	if (!bPointMoving && bPointSelectionMode && bPointHovered) {
 		ofSetColor(ofColor::blue);
-		ofDrawSphere(intersectPoint, .1);
+		ofDrawSphere(intersectPoint+ ofVec3f{ 0, 5, 0 }, 3);
 	}
 
 	
@@ -208,11 +213,6 @@ void ofApp::keyPressed(int key) {
 	switch (key) {
 	case 'C':
 	case 'c':
-		bPointSelectionMode = false;
-		bPointHovered = false;
-		selectedPoint = -1;
-		if (cam.getMouseInputEnabled()) cam.disableMouseInput();
-		else cam.enableMouseInput();
 		break;
 	case 'F':
 	case 'f':
@@ -244,19 +244,22 @@ void ofApp::keyPressed(int key) {
 		bDrawOctree^=true;
 		break;
 	case 'n':
-		if (!cam.getMouseInputEnabled()) {
-			bPointSelectionMode ^= true;
-			bPointHovered = false;
-			selectedPoint = -1;
-		}
+		bPointSelectionMode ^= true;
+		if (!bPointSelectionMode)
+			cam.enableMouseInput();
+		else 
+			cam.disableMouseInput();
+		bPointHovered = false;
+		selectedPoint = -1;
+
 		break;
 	case 'p':
 		if (!bPlayMode) {
 			if (!bPointSelectionMode && trails.size() >= 2) {
 				bPlayMode = true;
+				
 				currentCam = &pathCam;
-				//currentCam->setPosition(trails[0]);
-				//currentCam->lookAt({ 0,0,0 });
+
 				playMode_t = 0.0f;
 				playMode_i = 0;
 				

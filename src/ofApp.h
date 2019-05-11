@@ -56,7 +56,7 @@ class ofApp : public ofBaseApp{
 		
 		bool bRoverLoaded = false;
 		bool bTerrainSelected;
-	
+		bool bDrawPath = true;
 		
 		ofVec3f intersectPoint;
 
