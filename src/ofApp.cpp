@@ -3,11 +3,11 @@
 //
 //  Kevin M. Smith 
 //
-//  Mars HiRise Project - startup scene
+//  wholeTrack HiRise Project - startup scene
 // 
 //  This is an openFrameworks 3D scene that includes an EasyCam
-//  and example 3D geometry which I have reconstructed from Mars
-//  HiRis photographs taken the Mars Reconnaisance Orbiter
+//  and example 3D geometry which I have reconstructed from wholeTrack
+//  HiRis photographs taken the wholeTrack Reconnaisance Orbiter
 //
 //  You will use this source file (and include file) as a starting point
 //  to implement assignment 5  (Parts I and II)
@@ -40,18 +40,19 @@ void ofApp::setup(){
 	bDisplayPoints = false;
 	bAltKeyDown = false;
 	bCtrlKeyDown = false;
-	bRoverLoaded = false;
 	bTerrainSelected = true;
 //	ofSetWindowShape(1024, 768);
-	cam.setDistance(10);
+	
 	cam.setNearClip(.1);
+    cam.setFarClip(100000.0);
 	cam.setFov(65.5);   // approx equivalent to 28mm in 35mm format
+	cam.setPosition(0.f, 20.f, 0.f);
+	cam.lookAt(glm::vec3{ 0.f,0.f,0.f });
 
 	pathCam.setNearClip(.1);
 	pathCam.setFov(65.5);   // approx equivalent to 28mm in 35mm format
 
 	ofSetVerticalSync(true);
-	//cam.disableMouseInput();
 	ofEnableSmoothing();
 	ofEnableDepthTest();
 
@@ -59,14 +60,16 @@ void ofApp::setup(){
 	//
 	initLightingAndMaterials();
 
-	mars.loadModel("geo/simtraxx_bw.obj");
-	mars.setScaleNormalization(false);
-	mars.disableTextures();
-	//mars.setScale(-1, -1, 1);
+	wholeTrack.loadModel("geo/simtraxx_bw.obj");
+	wholeTrack.setScaleNormalization(false);
+	wholeTrack.disableTextures();
+    car.loadModel("geo/lander.obj");
+    car.setScaleNormalization(false);
+    car.disableTextures();
 
-	boundingBox = meshBounds(mars.getMesh(0));
+	boundingBox = meshBounds(wholeTrack.getMesh(0));
 
-	ot.create(mars);
+	ot.create(wholeTrack);
 
 	currentCam = &cam;
 }
@@ -80,6 +83,11 @@ void ofApp::update() {
 			if (playMode_i < trails.size() - 2) {
 				playMode_t = 0.0f;
 				++playMode_i;
+
+				carAngle = glm::orientedAngle(glm::normalize(glm::vec2(trails[playMode_i+1].x - trails[playMode_i].x, trails[playMode_i+1].z - trails[playMode_i].z)), carInitOrientation) / 3.1415926 * 180;
+				//cout << carAngle << endl;
+				
+				;
 			}
 			else {
 				bPlayMode = false;
@@ -90,16 +98,35 @@ void ofApp::update() {
 
 		float timeElasted = ofGetElapsedTimef();
 		ofResetElapsedTimeCounter();
-
-		playMode_t += timeElasted / trails[playMode_i].distance(trails[playMode_i + 1]) * speed;
-		pathCam.setPosition(trails[playMode_i] * (1 - playMode_t) + trails[playMode_i + 1] * playMode_t + ofVec3f{ 0, 5, 0 });
-		if (lookatSelection == 1) {
-			target = trails[playMode_i+1] + ofVec3f(0, 5, 0);
-		} else if (lookatSelection == 2) {
-			target = bRoverLoaded ? (rover.getSceneMax() + rover.getSceneMin()) / 2 + rover.getPosition() : ofPoint{ 0, 10, 0 };
+		
+		if (car.getRotationAngle(0) != carAngle) {
+			float diff = car.getRotationAngle(0) - carAngle;
+			float maxTurning = carMaxOmega * timeElasted;
+			//cout << diff << endl;
+			if (abs(diff) <= maxTurning || (360.0f - abs(diff)) <= maxTurning) {
+				car.setRotation(0, carAngle, 0, 1, 0);
+			}
+			else if ((0 < diff && diff < 180) || (-360 < diff && diff < -180)) {
+				car.setRotation(0, car.getRotationAngle(0) - maxTurning, 0, 1, 0);
+			}
+			else {
+				car.setRotation(0, car.getRotationAngle(0) + maxTurning, 0, 1, 0);
+			}
 		}
 		
+
+		//car.setRotation(0, carAngle, 0, 1, 0);
+
+
+		playMode_t += timeElasted / trails[playMode_i].distance(trails[playMode_i + 1]) * speed[playMode_i] * globalSpeedScaler;
+
+		glm::vec3 pos = trails[playMode_i] * (1 - playMode_t) + trails[playMode_i + 1] * playMode_t;
+		pathCam.setPosition(pos + pathCamOffset);
+		car.setPosition(pos.x,pos.y,pos.z);
+
+		if (playMode_i != trails.size() - 2) target = trails[playMode_i + 1] * (1 - playMode_t) + trails[playMode_i + 2] * playMode_t + pathCamOffset;
 		pathCam.lookAt(target);
+
 
 		//testPoint = trails[playMode_i] * (1 - playMode_t) + trails[playMode_i + 1] * playMode_t + ofVec3f{ 0, 5, 0 };
 	}
@@ -107,61 +134,73 @@ void ofApp::update() {
 }
 //--------------------------------------------------------------
 void ofApp::draw(){
-
 	ofBackground(ofColor::black);
-
 
 	currentCam->begin();
 	ofPushMatrix();
+	
 	if (bWireframe) {                    // wireframe mode  (include axis)
 		ofDisableLighting();
 		ofSetColor(ofColor::slateGray);
-		mars.drawWireframe();
-		if (bRoverLoaded) {
-			rover.drawWireframe();
-			if (!bTerrainSelected) drawAxis(rover.getPosition());
-		}
-		if (bTerrainSelected) drawAxis(ofVec3f(0, 0, 0));
+		wholeTrack.drawWireframe();
+        
+        
 	}
 	else {
 		ofEnableLighting();              // shaded mode
-		mars.drawFaces();
+		wholeTrack.drawFaces();
 
-		if (bRoverLoaded) {
-			rover.drawFaces();
-			if (!bTerrainSelected) drawAxis(rover.getPosition());
-		}
-		if (bTerrainSelected) drawAxis(ofVec3f(0, 0, 0));
+        if(trails.size() > 1){
+            car.drawFaces();
+        }
+        
 	}
 
 
 	if (bDisplayPoints) {                // display points as an option    
 		glPointSize(3);
 		ofSetColor(ofColor::green);
-		mars.drawVertices();
+		wholeTrack.drawVertices();
 	}
 
-	
-	
 	ofNoFill();
 	ofSetColor(ofColor::white);
-	drawBox(boundingBox);
-	drawBox(roverBox);
+	
 
-	if (!bPlayMode)
+	//if (!bPlayMode)
+	ofSetLineWidth(5);
 	for (int i = 0; i < trails.size();++i) {
 		if (i==selectedPoint) ofSetColor(ofColor::yellowGreen);
 		else ofSetColor(ofColor::red);
-		ofDrawSphere(trails[i] + ofVec3f{0, 5, 0}, 3);
+		ofDrawSphere(trails[i], 3);
 		ofSetColor(ofColor::red);
-		if (i) ofDrawLine(trails[i-1], trails[i]);
+        /*
+		switch (speed[i]) {
+            case 5:
+                ofSetColor(255, 0, 0);
+                break;
+            case 10:
+                ofSetColor(255, 255, 0);
+                break;
+            case 25:
+                ofSetColor(0, 255, 0);
+                break;
+            default:
+                break;
+        }
+		*/
+		ofSetColor(256 - speed[i] ,255 , 256- speed[i]);
+        
+		if (i<trails.size()-1) ofDrawLine(trails[i] + ofVec3f{0, 5, 0}, trails[i+1] + ofVec3f{0, 5, 0});
+        ofSetLineWidth(1);
+        ofSetColor(255, 255, 255);
 	}
 
 	// highlight selected point (draw sphere around selected point)
 	//
 	if (!bPointMoving && bPointSelectionMode && bPointHovered) {
 		ofSetColor(ofColor::blue);
-		ofDrawSphere(intersectPoint+ ofVec3f{ 0, 5, 0 }, 3);
+		ofDrawSphere(intersectPoint, 3);
 	}
 
 	
@@ -210,6 +249,7 @@ void ofApp::drawAxis(ofVec3f location) {
 
 void ofApp::keyPressed(int key) {
 
+	cout << key << endl;
 	switch (key) {
 	case 'C':
 	case 'c':
@@ -222,13 +262,21 @@ void ofApp::keyPressed(int key) {
 	case 'h':
 		break;
 	case 'r':
-		cam.reset();
+		//cam.reset();
 		break;
-	case 's':
-		savePicture();
+	case 19: //CRTL s
+		savePath();
+		break;
+	case 12: //CTRL l
+		loadPath();
+		if (trails.size() > 1) {
+			car.setPosition(trails[0].x, trails[0].y, trails[0].z);
+			carAngle = glm::orientedAngle(glm::normalize(glm::vec2(trails[1].x - trails[0].x, trails[1].z - trails[0].z)), carInitOrientation) / 3.1415926 * 180;
+			car.setRotation(0, carAngle, 0, 1, 0);
+		}
 		break;
 	case 't':
-		setCameraTarget();
+		toggleWireframeMode();
 		break;
 	case 'u':
 		break;
@@ -238,17 +286,34 @@ void ofApp::keyPressed(int key) {
 	case 'V':
 		break;
 	case 'w':
-		toggleWireframeMode();
+	case 'W':
+		cam.setPosition(cam.getPosition() - 5 * glm::vec3{ glm::sin(camLatitude),0,glm::cos(camLatitude) });
+		break;
+	case 's':
+	case 'S':
+		cam.setPosition(cam.getPosition() + 5 * glm::vec3{ glm::sin(camLatitude),0,glm::cos(camLatitude) });
+		break;
+	case 'a':
+	case 'A':
+	case OF_KEY_LEFT:
+		cam.setPosition(cam.getPosition() - 5 * cam.getSideDir());
+		break;
+	case 'd':
+	case 'D':
+	case OF_KEY_RIGHT:
+		cam.setPosition(cam.getPosition() + 5 * cam.getSideDir());
+		break;
+	case OF_KEY_UP:
+		cam.setPosition(cam.getPosition() + 5 * cam.getLookAtDir());
+		break;
+	case OF_KEY_DOWN:
+		cam.setPosition(cam.getPosition() + -5 * cam.getLookAtDir());
 		break;
 	case 'o':
 		bDrawOctree^=true;
 		break;
 	case 'n':
 		bPointSelectionMode ^= true;
-		if (!bPointSelectionMode)
-			cam.enableMouseInput();
-		else 
-			cam.disableMouseInput();
 		bPointHovered = false;
 		selectedPoint = -1;
 
@@ -259,6 +324,10 @@ void ofApp::keyPressed(int key) {
 				bPlayMode = true;
 				
 				currentCam = &pathCam;
+
+				currentCam->lookAt(trails[1] + pathCamOffset);
+				carAngle = glm::orientedAngle(glm::normalize(glm::vec2(trails[1].x - trails[0].x, trails[1].z - trails[0].z)), carInitOrientation) / 3.1415926 * 180;
+				car.setRotation(0, carAngle, 0, 1, 0);
 
 				playMode_t = 0.0f;
 				playMode_i = 0;
@@ -271,44 +340,58 @@ void ofApp::keyPressed(int key) {
 			currentCam = &cam;
 		}
 		break;
+	case ' ':
+		cam.setPosition(cam.getPosition() + glm::vec3{ 0.0f, 5.0f,0.0f });
+		break;
 	case '+':
 	case '=':
-		speed *= 2.0f;
+		if (bPlayMode) globalSpeedScaler *= 2.f;
+		else if (selectedPoint > 0 && speed[selectedPoint-1] < 256)
+			speed[selectedPoint-1] +=16;
 		break;
 	case '-':
 	case '_':
-		speed *= 0.5f;
+		if (bPlayMode) globalSpeedScaler *= .5f;
+        else if(selectedPoint > 0 && speed[selectedPoint-1] >16)
+            speed[selectedPoint-1] -=16;
 		break;
-	case ' ':
-		if (bPlayMode) {
-			if (currentCam == &cam) currentCam = &pathCam;
-			else currentCam = &cam;
-		}
-		break;
-	case '1':
-		lookatSelection = 1;
-		
-		break;
-	case '2':
-		lookatSelection = 2;
-		break;
+    
 	case OF_KEY_ALT:
-		cam.enableMouseInput();
+		//cam.enableMouseInput();
 		bAltKeyDown = true;
 		break;
 	case OF_KEY_CONTROL:
 		bCtrlKeyDown = true;
 		break;
 	case OF_KEY_SHIFT:
+		cam.setPosition(cam.getPosition() + glm::vec3{ 0.0f, -5.0f,0.0f });
 		break;
 	case OF_KEY_DEL:
 		if (selectedPoint != -1) {
 			trails.erase(trails.begin() + selectedPoint);
+			speed.erase(speed.begin() + selectedPoint);
+			if (selectedPoint==1 && trails.size() > 1) {
+				carAngle = glm::orientedAngle(glm::normalize(glm::vec2(trails[1].x - trails[0].x, trails[1].z - trails[0].z)), carInitOrientation) / 3.1415926 * 180;
+				car.setRotation(0, carAngle, 0, 1, 0);
+			}
+			if (selectedPoint == 0 && trails.size() > 0) {
+				car.setPosition(trails[0].x, trails[0].y, trails[0].z);
+			}
 			selectedPoint = -1;
 		}
-		else trails.clear();
+		else {
+			trails.clear();
+			speed.clear();
+		}
 		break;
-	default:
+        case OF_KEY_F1:
+            if (bPlayMode) {
+                if (currentCam == &cam) currentCam = &pathCam;
+                else currentCam = &cam;
+            }
+        break;
+		
+    default:
 		break;
 	}
 }
@@ -330,7 +413,7 @@ void ofApp::keyReleased(int key) {
 	switch (key) {
 	
 	case OF_KEY_ALT:
-		cam.disableMouseInput();
+		//cam.disableMouseInput();
 		bAltKeyDown = false;
 		break;
 	case OF_KEY_CONTROL:
@@ -353,23 +436,24 @@ void ofApp::mouseMoved(int x, int y ){
 	pmouseY = y;
 
 	if (bPointSelectionMode) {
-		bPointHovered = ot.doPointSelection(cam, ofVec3f(x, y, 0), intersectPoint);
+		bPointHovered = ot.doPointSelection(cam, ofVec3f(x, y, 0), &intersectPoint, NULL);
 	}
 }
 
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
-
-	if (cam.getMouseInputEnabled()) return;
+	
 
 	if (bPointSelectionMode) {
 		if (button == 2) selectedPoint = -1;
 		else if (!button && bPointHovered) {
 			int tmp = -1;
 			for (int i = 0; i < trails.size(); ++i)
-				if (trails[i] == intersectPoint)
+				if (glm::distance(currentCam->worldToScreen(trails[i]), currentCam->worldToScreen(intersectPoint)) < 30) {
 					tmp = i;
+					//cout << currentCam->worldToScreen(trails[i])<<' '<< currentCam->worldToScreen(intersectPoint)<<' '<<glm::distance(currentCam->worldToScreen(trails[i]), currentCam->worldToScreen(intersectPoint)) << endl;
+				}
 			if (tmp != -1) {
 				selectedPoint = tmp;
 				bPointMoving = true;
@@ -377,23 +461,21 @@ void ofApp::mousePressed(int x, int y, int button) {
 			}
 			else {
 				trails.push_back(intersectPoint);
+                speed.push_back(128);
 				selectedPoint = trails.size() - 1;
 				//bPointSelectionMode = false;
 				bPointMoving = true;
+				
+			}
+			if (selectedPoint == 0) {
+				car.setPosition(trails[0].x, trails[0].y, trails[0].z);
+			}
+			if (selectedPoint == 1) {
+				carAngle = glm::orientedAngle(glm::normalize(glm::vec2(trails[1].x - trails[0].x, trails[1].z - trails[0].z)), carInitOrientation) / 3.1415926 * 180;
+				car.setRotation(0, carAngle, 0, 1, 0);
 			}
 		}
 	}
-	else {
-		glm::vec3 dir = glm::normalize(cam.screenToWorld(glm::vec3{ x,y,0 }) - cam.getPosition());
-
-		Ray mouseray = { Vector3{ cam.getPosition().x,cam.getPosition().y ,cam.getPosition().z }, Vector3{ dir.x,dir.y,dir.z } };
-		if (roverBox.intersect(mouseray, 0.1f, 1000.0f)) {
-			bRoverDraging = true;
-			diffToRover = glm::vec3{ x,y,0 }-cam.worldToScreen(rover.getPosition());
-		}
-	}
-
-
 	
 }
 
@@ -462,8 +544,8 @@ Box ofApp::meshBounds(ofxAssimpModelLoader &a)
 
 void ofApp::updateRoverBox()
 {
-	roverBox.parameters[0] = vecAdd(roverOriMin, rover.getPosition());
-	roverBox.parameters[1] = vecAdd(roverOriMax, rover.getPosition());
+	roverBox.parameters[0] = vecAdd(roverOriMin, car.getPosition());
+	roverBox.parameters[1] = vecAdd(roverOriMax, car.getPosition());
 }
 
 
@@ -471,21 +553,23 @@ void ofApp::updateRoverBox()
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button) {
 	
-
-	if (bRoverDraging) {
-		glm::vec3 realPosOnScreen = glm::vec3{ x,y,0 }-diffToRover;
-		glm::vec3 dir = cam.screenToWorld(realPosOnScreen) - cam.getPosition();
-
-		float distance;
-
-		if (glm::intersectRayPlane(cam.getPosition(), glm::normalize(dir), glm::vec3{ rover.getPosition() }, cam.getZAxis(), distance)) {
-			auto point = cam.getPosition() + distance * glm::normalize(dir);
-			rover.setPosition(point.x, point.y, point.z);
-			updateRoverBox();
+	if (bPointMoving) {
+		ot.doPointSelection(cam, ofVec3f(x, y, 0), &trails[selectedPoint], NULL);
+		if (selectedPoint == 0) {
+			car.setPosition(trails[0].x, trails[0].y, trails[0].z);
+		}
+		if (selectedPoint == 1) {
+			carAngle = glm::orientedAngle(glm::normalize(glm::vec2(trails[1].x - trails[0].x, trails[1].z - trails[0].z)), carInitOrientation) / 3.1415926 * 180;
+			car.setRotation(0, carAngle, 0, 1, 0);
 		}
 	}
-	if (bPointMoving) {
-		ot.doPointSelection(cam, ofVec3f(x, y, 0), trails[selectedPoint]);
+	if (!bPointSelectionMode) {
+		camLatitude -= (x - pmouseX) / 500.f;
+		camLongitude -= (y - pmouseY) / 500.f;
+		if (camLongitude > glm::half_pi<float>())  camLongitude = glm::half_pi<float>();
+		if (camLongitude < -glm::half_pi<float>())  camLongitude = -glm::half_pi<float>();
+		glm::quat q = glm::angleAxis(0.f, glm::vec3(0, 0, 1)) * glm::angleAxis(camLatitude, glm::vec3(0, 1, 0)) * glm::angleAxis(camLongitude, glm::vec3(1, 0, 0));
+		cam.setOrientation(q);
 	}
 	pmouseX = x;
 	pmouseY = y;
@@ -510,7 +594,7 @@ void ofApp::mouseReleased(int x, int y, int button) {
 //
 bool ofApp::doPointSelection() {
 
-	ofMesh mesh = mars.getMesh(0);
+	ofMesh mesh = wholeTrack.getMesh(0);
 	int n = mesh.getNumVertices();
 	float nearestDistance = 0;
 	int nearestIndex = 0;
@@ -636,5 +720,38 @@ void ofApp::savePicture() {
 // model is dropped in viewport, place origin under cursor
 //
 void ofApp::dragEvent(ofDragInfo dragInfo) {
+	
+}
+
+void ofApp::savePath()
+{
+    nlohmann::json j;
+    j["points"] = nlohmann::json::array();
+    for (int i = 0; i < trails.size();++i) {
+        nlohmann::json p;
+        p["x"] = trails[i].x;
+        p["y"] = trails[i].y;
+        p["z"] = trails[i].z;
+        p["s"] = speed[i];
+        j["points"].push_back(p);
+    }
+    
+    std::ofstream o("data/save.json");
+    o << std::setw(4) << j << std::endl;
+}
+
+void ofApp::loadPath()
+{
+    ifstream i("data/save.json");
+    nlohmann::json j;//="{\"layers\":[{\"height\":444.0,\"path\":\"C:\\\\Users\\\\Forrest-m\\\\Desktop\\\\rockman.png\",\"width\":466.0,\"x\":515.0,\"y\":312.0}],\"selected\":-1}"_json;
+    i >> j;
+    //cout << j.dump() << endl;;
+    
+    trails.clear();
+    speed.clear();
+    for (auto& t : j["points"]) {
+        trails.emplace_back(t["x"], t["y"], t["z"]);
+        speed.push_back(t["s"]);
+    }
 	
 }

@@ -34,13 +34,14 @@ public:
 	}
 
 	static void drawBox(const Box &box);
-	bool doPointSelection(ofCamera& cam, ofVec3f mouse, ofVec3f & rtnPoint);
-	void findPoint(const node& box, const Ray r, ofCamera& cam, ofVec3f & mouse, vector<ObjectPoint>& selections);
+	bool doPointSelection(ofCamera& cam, ofVec3f mouse, ofVec3f * rtnPoint, ofVec3f * rtnNormal);
+	bool doPointSelection(Ray r, ofVec3f * rtnPoint, ofVec3f * rtnNormal);
+	bool findPoint(const node& box, const Ray r, ofVec3f * rtnPoint, ofVec3f * rtnNormal, float& minDis);
 	bool inside(Box& box, Vector3 v);
 	node root;
-	int maxLvl = 12;
+	int maxLvl = 9;
 	vector<ofMesh> meshes;
 
-	const float selectionRange = 10.0;
+	//const float selectionRange = 10.0;
 };
 

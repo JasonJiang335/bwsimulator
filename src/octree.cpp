@@ -1,4 +1,5 @@
 #include "octree.h"
+#include "Util.h"
 
 void octree::create(ofxAssimpModelLoader& obj)
 {
@@ -116,50 +117,59 @@ void octree::drawBox(const Box &box) {
 	//ofSetColor(255,255, 255);
 }
 
-bool octree::doPointSelection(ofCamera& cam, ofVec3f mouse, ofVec3f & rtnPoint)
+bool octree::doPointSelection(ofCamera& cam, ofVec3f mouse, ofVec3f * rtnPoint, ofVec3f * rtnNormal)
 {
-	vector<ObjectPoint> selections;
-
+	
 	glm::vec3 dir = glm::normalize(cam.screenToWorld(glm::vec3{ mouse }) - cam.getPosition());
 
 	Ray r = { Vector3{ cam.getPosition().x,cam.getPosition().y ,cam.getPosition().z }, Vector3{ dir.x,dir.y,dir.z } };
 
-	findPoint(root, r, cam, mouse, selections);
-	if (selections.size() > 0) {
-		float distance = 0;
-		ObjectPoint selectedPoint;
-		for (int i = 0; i < selections.size(); i++) {
-			ofVec3f point = cam.worldToCamera(meshes[selections[i].meshIndex].getVertex(selections[i].verticesIndex));
-			// In camera space, the camera is at (0,0,0), so distance from 
-			// the camera is simply the length of the point vector
-			//
-			float curDist = point.length();
-				if (i == 0 || curDist < distance) {
-				distance = curDist;
-				selectedPoint = selections[i];
-			}
-		}
-		rtnPoint = meshes[selectedPoint.meshIndex].getVertex(selectedPoint.verticesIndex);
-		return true;
-	}
-
-	return false;
+	return doPointSelection(r, rtnPoint,rtnNormal);
 }
 
-void octree::findPoint(const node & treenode, const Ray r, ofCamera& cam, ofVec3f & mouse, vector<ObjectPoint>& selections)
+bool octree::doPointSelection(Ray r, ofVec3f * rtnPoint, ofVec3f * rtnNormal)
+{
+	float minDistance = FLT_MAX;
+
+	return findPoint(root, r, rtnPoint, rtnNormal, minDistance);
+}
+
+bool octree::findPoint(const node & treenode, const Ray r, ofVec3f * rtnPoint, ofVec3f * rtnNormal, float& minDistance)
 {
 	if (treenode.leaf) {
-		for (ObjectPoint o : *treenode.points) {
-			ofVec3f vert = meshes[o.meshIndex].getVertex(o.verticesIndex);
-			ofVec3f posScreen = cam.worldToScreen(vert);
-			float distance = posScreen.distance(mouse);
-			if (distance < selectionRange)
-				selections.push_back(o);
+		ObjectPoint minVert = treenode.points->at(0);
+		float minDis = glm::distance(glm::vec3{ meshes[minVert.meshIndex].getVertex(minVert.verticesIndex) }, glm::vec3{r.origin.x(), r.origin.y(), r.origin.z() });
+		for (ObjectPoint& o : *treenode.points) {
+			
+			float tmpd = glm::distance(glm::vec3{ meshes[o.meshIndex].getVertex(o.verticesIndex) }, glm::vec3{ r.origin.x(), r.origin.y(), r.origin.z() });
+
+			if (tmpd < minDis) {
+				minVert = o;
+				minDis = tmpd;
+			}
 		}
+
+		ofVec3f point;
+		ofVec3f raypoint{ r.origin.x(), r.origin.y() ,r.origin.z() };
+		ofVec3f raydir{ r.direction.x(), r.direction.y() ,r.direction.z() };
+
+		if (rayIntersectPlane(raypoint, raydir, meshes[minVert.meshIndex].getVertex(minVert.verticesIndex), meshes[minVert.meshIndex].getNormal(minVert.verticesIndex), point)) {
+			float d = point.distance(ofVec3f{ r.origin.x(), r.origin.y(), r.origin.z() });
+			if (d < minDistance) {
+				if (rtnPoint) *rtnPoint = point;
+				if (rtnNormal) *rtnNormal = meshes[minVert.meshIndex].getNormal(minVert.verticesIndex);
+				minDistance = d;
+			}
+		}
+		
+		
 	}
 	else {
 		for (const node& n : *treenode.children)
 			if (n.box.intersect(r, 0.1, 500))
-				findPoint(n, r, cam, mouse, selections);
+				findPoint(n, r, rtnPoint, rtnNormal, minDistance);
 	}
+
+	return minDistance < FLT_MAX;
+
 }

@@ -37,12 +37,16 @@ class ofApp : public ofBaseApp{
 		
 		Box meshBounds(ofxAssimpModelLoader &);
 		void updateRoverBox();
-		
+        void savePath();
+        void loadPath();
 
-		ofEasyCam cam;
+		ofCamera cam;
+		float camLatitude = 0.0f;
+		float camLongitude = -glm::half_pi<float>();
+
 		ofCamera pathCam;
 		ofCamera * currentCam;
-		ofxAssimpModelLoader mars, rover;
+		ofxAssimpModelLoader wholeTrack, track, car;
 		ofLight light;
 		Box boundingBox;
 		Box roverBox;
@@ -53,8 +57,6 @@ class ofApp : public ofBaseApp{
 		bool bDisplayPoints;
 		bool bPointHovered;
 		bool bPlayMode = false;
-		
-		bool bRoverLoaded = false;
 		bool bTerrainSelected;
 		bool bDrawPath = true;
 		
@@ -65,6 +67,7 @@ class ofApp : public ofBaseApp{
 		Vector3 roverOriMax;
 		Vector3 roverOriMin;
 		glm::vec3 diffToRover;
+    glm::vec3 camPos;
 
 		bool bRoverDraging;
 		
@@ -73,7 +76,7 @@ class ofApp : public ofBaseApp{
 		bool bDrawOctree = false;
 		bool bPointSelectionMode = false;
 		vector<ofVec3f> trails;
-		
+        vector<int> speed;
 		const float selectionRange = 4.0;
 
 		int selectedPoint = -1;
@@ -85,6 +88,11 @@ class ofApp : public ofBaseApp{
 		glm::vec3 target;
 		int lookatSelection=1;
 
-		float speed = 1.0f;
+		float carAngle;
+		float carMaxOmega = 90.0f;
 
+		glm::vec2 carInitOrientation{ 1, 0 };
+		ofVec3f pathCamOffset { 0.0f, 5.0f, 0.0f };
+
+		float globalSpeedScaler = 0.5f;
 };
